@@ -26,7 +26,7 @@ def _isinstance_with_generic(value: Any, types: Union[Type, tuple[Type, ...]]) -
     if base_generic is None:
         return isinstance(value, types)
 
-    if base_generic in [UnionType, Union]:
+    if base_generic in (UnionType, Union):
         return any(_isinstance_with_generic(value, type_) for type_ in get_args(types))
 
     args = get_args(types)
