@@ -1,6 +1,6 @@
 from typing import List, Set, Tuple, Union
 
-from mageclass import _isinstance_with_generic
+from entob import _isinstance_with_generic
 
 
 def test_isinstance_with_generic():
@@ -18,6 +18,8 @@ def test_isinstance_with_generic():
     assert _isinstance_with_generic(["1", "2", "3", "4"], types)
 
     assert not _isinstance_with_generic([1, 2, 3, 4, None], types)
+    assert not _isinstance_with_generic([(1, 2), {1, 2}], types)
+    assert not _isinstance_with_generic([(1, 2), (1, 2)], types)
     assert not _isinstance_with_generic([1, 2, 3, 4, "5"], types)
     assert not _isinstance_with_generic([1, 2, 3, 4, 5.0], types)
     assert not _isinstance_with_generic([None], types)
@@ -32,6 +34,7 @@ def test_isinstance_with_generic():
     assert _isinstance_with_generic(set(), types)
 
     assert not _isinstance_with_generic({1, 2, None}, types)
+    assert not _isinstance_with_generic({(1, 2), (1, 2)}, types)
     assert not _isinstance_with_generic({1, 2, "3"}, types)
     assert not _isinstance_with_generic({1, 2, 3.0}, types)
     assert not _isinstance_with_generic({None}, types)
@@ -58,3 +61,12 @@ def test_isinstance_with_generic():
     assert not _isinstance_with_generic(True, types)
     assert not _isinstance_with_generic(False, types)
     assert not _isinstance_with_generic(([], []), types)
+
+    assert _isinstance_with_generic(1, (int, str))
+    assert _isinstance_with_generic("1", (int, str))
+    assert _isinstance_with_generic(True, (int, str))
+    assert _isinstance_with_generic(False, (int, str))
+    assert _isinstance_with_generic(1.0, float)
+    assert not _isinstance_with_generic(None, (int, str))
+    assert not _isinstance_with_generic(1.0, (int, str))
+    assert not _isinstance_with_generic(([], []), (int, str))
