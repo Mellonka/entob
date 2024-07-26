@@ -26,11 +26,9 @@ class ValueObject(ABC):
         data = data or {}
         data.update(kwargs)
 
-        cls = self.__class__
-        for attr_name, attr in cls.__dict__.items():
-            if isinstance(attr, Describe):
-                value = data.get(attr_name, None)
-                setattr(self, attr_name, value)
+        for field in self.fields():
+            value = data.get(field, None)
+            setattr(self, field, value)
 
         self._modified.clear()
 
@@ -44,26 +42,29 @@ class ValueObject(ABC):
     def modified_fields(self) -> Set[str]:
         return self._modified
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.__dict__})"
-
-    def to_dict(self) -> Dict[str, Any]:
-        cls = self.__class__
+    @classmethod
+    def fields(cls) -> Set[str]:
         return {
-            key: getattr(self, key)
-            for key, value in cls.__dict__.items()
+            field
+            for field, value in cls.__dict__.items()
             if isinstance(value, Describe)
         }
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}"
+            f"({', '.join(f'{field}={getattr(self, field)!r}' for field in self.fields())})"
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {field: getattr(self, field) for field in self.fields()}
+
     def __eq__(self, other: Any) -> bool:
-        cls = self.__class__
-        if not isinstance(other, cls):
+        if not isinstance(other, self.__class__):
             return False
 
-        for key, value in cls.__dict__.items():
-            if not isinstance(value, Describe):
-                continue
-            if getattr(self, key) != getattr(other, key):
+        for field in self.fields():
+            if getattr(self, field) != getattr(other, field):
                 return False
 
         return True
