@@ -20,10 +20,13 @@ from typing import (
 class ValueObject(ABC):
     _modified: Set[str]
 
-    def __init__(self, data: Union[None, Dict[str, Any]] = None, **kwargs):
+    def __init__(
+        self, data: Union[None, Dict[str, Any], "ValueObject"] = None, **kwargs
+    ):
         self._modified = set()
 
         data = data or {}
+        data = data.to_dict() if isinstance(data, ValueObject) else data
         data.update(kwargs)
 
         for field in self.fields():

@@ -18,3 +18,17 @@ class Money(ValueObject):
         nullable=False,
     )
     currency = Describe(types=str, enums=("RUB", "USD", "EUR"), nullable=False)
+
+
+class Wallet(ValueObject):
+    """
+    examples:
+        Wallet(moneys=[{"amount": 35.12, "currency": "USD"}])
+        Wallet(moneys=[Money(amount=100_000, currency="EUR")])
+    """
+
+    moneys = Describe(
+        types=list[Money],
+        coerce=lambda value: list(map(Money, value)),
+        nullable=False,
+    )
