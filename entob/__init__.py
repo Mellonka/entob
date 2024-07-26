@@ -18,7 +18,11 @@ from typing import (
 
 
 class ValueObject(ABC):
+    _modified: Set[str]
+
     def __init__(self, data: Union[None, Dict[str, Any]] = None, **kwargs):
+        self._modified = set()
+
         data = data or {}
         data.update(kwargs)
 
@@ -27,6 +31,18 @@ class ValueObject(ABC):
             if isinstance(attr, Describe):
                 value = data.get(attr_name, None)
                 setattr(self, attr_name, value)
+
+        self._modified.clear()
+
+    def is_modified(self, field_name) -> bool:
+        return field_name in self._modified
+
+    def set_modified(self, field_name) -> None:
+        self._modified.add(field_name)
+
+    @property
+    def modified_fields(self) -> Set[str]:
+        return self._modified
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.__dict__})"
@@ -152,6 +168,9 @@ class Describe(Generic[ValueTypes]):
 
         value = self.coerce(value) if self.coerce else value
 
+        if value is None and self.default is not None:
+            value = self.default() if callable(self.default) else self.default
+
         if not self.nullable and value is None:
             raise ValueError(
                 f"Value for attribute {class_name}.{self.name} is required"
@@ -161,6 +180,7 @@ class Describe(Generic[ValueTypes]):
             raise AttributeError(f"Attribute {class_name}.{self.name} is readonly")
 
         if value is None:
+            instance.set_modified(self.name)
             instance.__dict__[self.name] = value
             return
 
@@ -177,6 +197,7 @@ class Describe(Generic[ValueTypes]):
         if self.validate and not self.validate(value):
             raise ValueError(f"Value for attribute {class_name}.{self.name} is invalid")
 
+        instance.set_modified(self.name)
         instance.__dict__[self.name] = value
 
     def __get__(self, instance: ValueObject | None, owner) -> ValueTypes:
