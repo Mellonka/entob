@@ -29,6 +29,7 @@ class Wallet(ValueObject):
 
     moneys = Describe(
         types=list[Money],
+        default=list,
         coerce=lambda value: list(map(Money, value)),
         nullable=False,
     )

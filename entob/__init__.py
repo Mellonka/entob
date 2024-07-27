@@ -97,14 +97,14 @@ def _isinstance_with_generic(
         return any(_isinstance_with_generic(value, type_) for type_ in args)
 
     if base_generic in (list, set):
-        return type(value) == base_generic and all(
+        return type(value) is base_generic and all(
             _isinstance_with_generic(item, args)
             for item in value  # type: ignore
         )
 
-    if base_generic == tuple:
+    if base_generic is tuple:
         return (
-            type(value) == tuple
+            type(value) is tuple
             and len(value) == len(args)
             and all(
                 _isinstance_with_generic(item, arg) for item, arg in zip(value, args)
@@ -170,10 +170,14 @@ class Describe(Generic[ValueTypes]):
     def __set__(self, instance: ValueObject, value: ValueTypes):
         class_name = instance.__class__.__name__
 
-        value = self.coerce(value) if self.coerce else value
-
         if value is None and self.default is not None:
             value = self.default() if callable(self.default) else self.default
+            if not _isinstance_with_generic(value, self.types):
+                raise TypeError(
+                    f"Default value for attribute {class_name}.{self.name} must be one of {self.types}"
+                )
+
+        value = self.coerce(value) if self.coerce else value
 
         if not self.nullable and value is None:
             raise ValueError(
