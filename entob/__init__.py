@@ -1,5 +1,4 @@
 from abc import ABC
-from types import UnionType
 from typing import (
     Any,
     Callable,
@@ -12,9 +11,9 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    get_args,
-    get_origin,
 )
+
+from entob.util import isinstance_with_generic
 
 
 class ValueObject(ABC):
@@ -76,58 +75,23 @@ class ValueObject(ABC):
         return not self.__eq__(other)
 
 
-ValueTypes = TypeVar("ValueTypes")
+T = TypeVar("T")
 
 
-def _isinstance_with_generic(
-    value: ValueTypes,
-    types: Union[Type[ValueTypes], Tuple[Type[ValueTypes], ...]],
-) -> bool:
-    if isinstance(types, tuple):
-        return any(_isinstance_with_generic(value, type_) for type_ in types)
-
-    base_generic = get_origin(types)
-
-    if base_generic is None:
-        return isinstance(value, types)
-
-    args = get_args(types)
-
-    if base_generic in (UnionType, Union):
-        return any(_isinstance_with_generic(value, type_) for type_ in args)
-
-    if base_generic in (list, set):
-        return type(value) is base_generic and all(
-            _isinstance_with_generic(item, args)
-            for item in value  # type: ignore
-        )
-
-    if base_generic is tuple:
-        return (
-            type(value) is tuple
-            and len(value) == len(args)
-            and all(
-                _isinstance_with_generic(item, arg) for item, arg in zip(value, args)
-            )
-        )
-
-    raise NotImplementedError(f"Unknown types: {types}")
-
-
-class Describe(Generic[ValueTypes]):
-    types: Tuple[Type[ValueTypes], ...]
-    default: Union[None, ValueTypes, Callable[..., ValueTypes]] = None
+class Describe(Generic[T]):
+    types: Tuple[Type[T], ...]
+    default: Union[None, T, Callable[..., T]] = None
     nullable: bool = False
     enums: Union[None, List, Tuple, Set] = None
     validate: Optional[Callable[..., bool]] = None
-    coerce: Optional[Callable[..., ValueTypes]] = None
+    coerce: Optional[Callable[..., T]] = None
     readonly: bool = False
 
     def __init__(
         self,
         *,
-        types: Union[Type[ValueTypes], Tuple[Type[ValueTypes], ...]],
-        default: Union[None, ValueTypes, Callable[..., ValueTypes]] = None,
+        types: Union[Type[T], Tuple[Type[T], ...]],
+        default: Union[None, T, Callable[..., T]] = None,
         nullable: bool = False,
         enums: Union[None, List, Tuple, Set] = None,
         validate: Optional[Callable[..., bool]] = None,
@@ -141,7 +105,7 @@ class Describe(Generic[ValueTypes]):
         if (
             default is not None
             and not callable(default)
-            and not _isinstance_with_generic(default, self.types)
+            and not isinstance_with_generic(default, self.types)
         ):
             raise TypeError(f"default value must be of type {self.types} or callable")
 
@@ -167,12 +131,12 @@ class Describe(Generic[ValueTypes]):
     def __set_name__(self, owner, name):
         self.name = name
 
-    def __set__(self, instance: ValueObject, value: ValueTypes):
+    def __set__(self, instance: ValueObject, value: T):
         class_name = instance.__class__.__name__
 
         if value is None and self.default is not None:
             value = self.default() if callable(self.default) else self.default
-            if not _isinstance_with_generic(value, self.types):
+            if not isinstance_with_generic(value, self.types):
                 raise TypeError(
                     f"Default value for attribute {class_name}.{self.name} must be one of {self.types}"
                 )
@@ -192,7 +156,7 @@ class Describe(Generic[ValueTypes]):
             instance.__dict__[self.name] = value
             return
 
-        if not _isinstance_with_generic(value, self.types):
+        if not isinstance_with_generic(value, self.types):
             raise TypeError(
                 f"Value for attribute {class_name}.{self.name} must be one of {self.types}"
             )
@@ -208,7 +172,7 @@ class Describe(Generic[ValueTypes]):
         instance.set_modified(self.name)
         instance.__dict__[self.name] = value
 
-    def __get__(self, instance: ValueObject | None, owner) -> ValueTypes:
+    def __get__(self, instance: ValueObject | None, owner) -> T:
         if instance is None:
             return self  # type: ignore
 

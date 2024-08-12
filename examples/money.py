@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from entob import Describe, ValueObject
+from entob.util import coerce_list
 
 
 class Money(ValueObject):
@@ -30,6 +31,6 @@ class Wallet(ValueObject):
     moneys = Describe(
         types=list[Money],
         default=list,
-        coerce=lambda value: list(map(Money, value)),
+        coerce=coerce_list(Money),
         nullable=False,
     )
