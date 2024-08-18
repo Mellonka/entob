@@ -40,9 +40,6 @@ class ValueObject(ABC):
             value = data.get(field, None)
             setattr(self, field, value)
 
-        for dependency in self.dependencies().values():
-            dependency.inject(self)
-
         self._modified.clear()
 
     def is_modified(self, field_name) -> bool:
@@ -69,14 +66,6 @@ class ValueObject(ABC):
             field: value
             for field, value in cls.__dict__.items()
             if isinstance(value, Env)
-        }
-
-    @classmethod
-    def dependencies(cls) -> dict[str, "Dependency"]:
-        return {
-            field: value
-            for field, value in cls.__dict__.items()
-            if isinstance(value, Dependency)
         }
 
     def __repr__(self) -> str:
@@ -251,20 +240,18 @@ class Dependency(Generic[T]):
     def __set_name__(self, owner, name):
         self.name = name
 
-    def inject(self, instance: ValueObject):
+    def inject(self, instance):
         setattr(instance, self.name, self.provider.provide())
 
-    def __get__(self, instance: ValueObject | None, owner) -> T:
+    def __get__(self, instance, owner) -> T:
         if instance is None:
             return self  # type: ignore
 
         if self.name not in instance.__dict__:
-            raise AttributeError(
-                f"Dependency {self.__class__.__name__}.{self.name} is required"
-            )
+            self.inject(instance)
 
         return instance.__dict__[self.name]
 
 
 __version__ = "0.1.0"
-__all__ = ["ValueObject", "Describe"]
+__all__ = ["ValueObject", "Describe", "Env", "Dependency"]

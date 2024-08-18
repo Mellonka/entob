@@ -34,11 +34,20 @@ class Worker(ValueObject):
     session = Dependency(PostgresDependencies.session)
 
 
-Worker()
-Worker()
-Worker()
-Worker()
+worker1 = Worker()
+worker2 = Worker()
+worker3 = Worker()
+worker4 = Worker()
 
+"""
+Вывод пуст
+"""
+
+
+worker1.session
+worker2.session
+worker3.session
+worker4.session
 
 """
 Вывод:
