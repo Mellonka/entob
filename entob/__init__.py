@@ -1,3 +1,4 @@
+import os
 from abc import ABC
 from typing import (
     Any,
@@ -13,6 +14,7 @@ from typing import (
     Union,
 )
 
+from entob.provider import BaseProvider
 from entob.util import isinstance_with_generic
 
 
@@ -28,7 +30,13 @@ class ValueObject(ABC):
         data = data.to_dict() if isinstance(data, ValueObject) else data
         data.update(kwargs)
 
+        env_vars = self.env_vars()
+        for env_var in env_vars.values():
+            env_var.set_env_var(self)
+
         for field in self.fields():
+            if field in env_vars and field not in data:
+                continue
             value = data.get(field, None)
             setattr(self, field, value)
 
@@ -50,6 +58,14 @@ class ValueObject(ABC):
             field
             for field, value in cls.__dict__.items()
             if isinstance(value, Describe)
+        }
+
+    @classmethod
+    def env_vars(cls) -> dict[str, "Env"]:
+        return {
+            field: value
+            for field, value in cls.__dict__.items()
+            if isinstance(value, Env)
         }
 
     def __repr__(self) -> str:
@@ -184,5 +200,58 @@ class Describe(Generic[T]):
         return instance.__dict__[self.name]
 
 
+class Env(Describe[T]):
+    env_var: str
+
+    def __init__(
+        self,
+        env_var: str,
+        *,
+        types: type[T] | Tuple[type[T], ...] = str,  # type: ignore
+        default: None | T | Callable[[], T] = None,
+        nullable: bool = False,
+        enums: None | List | Tuple | Set = None,
+        validate: Callable[[T], bool] | None = None,
+        coerce: Callable[[Any], T] | None = None,
+        readonly: bool = False,
+    ):
+        self.env_var = env_var
+        super().__init__(
+            types=types,
+            default=default,
+            nullable=nullable,
+            enums=enums,
+            validate=validate,
+            coerce=coerce,
+            readonly=readonly,
+        )
+
+    def set_env_var(self, instance: ValueObject):
+        value = os.environ.get(self.env_var)
+        setattr(instance, self.name, value)
+
+
+class Dependency(Generic[T]):
+    provider: BaseProvider[T]
+
+    def __init__(self, provider: BaseProvider[T]):
+        self.provider = provider
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def inject(self, instance):
+        setattr(instance, self.name, self.provider.provide())
+
+    def __get__(self, instance, owner) -> T:
+        if instance is None:
+            return self  # type: ignore
+
+        if self.name not in instance.__dict__:
+            self.inject(instance)
+
+        return instance.__dict__[self.name]
+
+
 __version__ = "0.1.0"
-__all__ = ["ValueObject", "Describe"]
+__all__ = ["ValueObject", "Describe", "Env", "Dependency"]
